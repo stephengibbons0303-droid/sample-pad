@@ -95,6 +95,8 @@
         .seq-cell.on-snare{background:#8D6E63;border:1px solid #BCAAA4;box-shadow:0 0 6px rgba(141,110,99,0.4)}
         .seq-cell.on-hihat{background:#78909C;border:1px solid #90A4AE;box-shadow:0 0 6px rgba(120,144,156,0.4)}
         .seq-cell.on-clap{background:#A1887F;border:1px solid #BCAAA4;box-shadow:0 0 6px rgba(161,136,127,0.4)}
+        .seq-cell.on-boom{background:#5D4037;border:1px solid #795548;box-shadow:0 0 6px rgba(93,64,55,0.5)}
+        .seq-cell.on-laser{background:#7B1FA2;border:1px solid #AB47BC;box-shadow:0 0 6px rgba(123,31,162,0.5)}
         .seq-cell.current{box-shadow:0 0 10px rgba(255,255,255,0.4)!important;transform:scale(1.1)}
         #seq-controls{display:flex;align-items:center;gap:8px;margin-top:4px;justify-content:center}
         #seq-toggle{height:30px;border-radius:15px;font-size:11px;font-weight:800;padding:0 14px;display:flex;align-items:center;gap:4px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.08)}
@@ -176,6 +178,12 @@
         .dur-btn{padding:10px 18px;border-radius:12px;font-size:15px;font-weight:800;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.7);border:2px solid rgba(255,255,255,0.1);transition:all 0.15s}
         .dur-btn.active{background:linear-gradient(135deg,#42A5F5,#1E88E5);color:white;border-color:#42A5F5}
         .dur-btn:active{transform:scale(0.95)}
+
+        /* SPEED STEP BUTTONS */
+        .speed-steps{display:flex;gap:6px;flex-wrap:wrap}
+        .speed-btn{padding:8px 14px;border-radius:10px;font-size:14px;font-weight:800;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:2px solid rgba(255,255,255,0.08);transition:all 0.15s;min-width:44px;text-align:center}
+        .speed-btn.active{background:linear-gradient(135deg,#42A5F5,#1E88E5);color:white;border-color:#42A5F5}
+        .speed-btn:active{transform:scale(0.93)}
 
         /* COUNTDOWN RING */
         .rec-countdown{position:relative;width:52px;height:52px}
@@ -309,8 +317,8 @@
 const MAX_LOOPS=8;
 const DB_NAME='SoundLoopDB', DB_VERSION=1;
 const SEQ_STEPS=8;
-const DRUM_NAMES=['kick','snare','hihat','clap'];
-const DRUM_ICONS=['🥁','🪘','🔔','👏'];
+const DRUM_NAMES=['kick','snare','hihat','clap','boom','laser'];
+const DRUM_ICONS=['🥁','🪘','🔔','👏','💥','⚡'];
 const DUR_OPTIONS=[1,2,3,4,5,8];
 
 let loops=[];
@@ -332,6 +340,8 @@ function initDrums(){
     drumSynths.snare=new Tone.NoiseSynth({noise:{type:'white'},envelope:{attack:0.001,decay:0.15,sustain:0}}).toDestination();
     drumSynths.hihat=new Tone.MetalSynth({frequency:400,envelope:{attack:0.001,decay:0.08,release:0.05},harmonicity:5.1,modulationIndex:32,resonance:4000,octaves:1.5}).toDestination();
     drumSynths.clap=new Tone.NoiseSynth({noise:{type:'pink'},envelope:{attack:0.005,decay:0.12,sustain:0}}).toDestination();
+    drumSynths.boom=new Tone.MembraneSynth({pitchDecay:0.08,octaves:8,envelope:{attack:0.001,decay:0.6,sustain:0}}).toDestination();drumSynths.boom.volume.value=4;
+    drumSynths.laser=new Tone.Synth({oscillator:{type:'sawtooth'},envelope:{attack:0.001,decay:0.15,sustain:0,release:0.05}}).toDestination();drumSynths.laser.volume.value=-4;
 }
 function playDrum(d){
     if(!drumSynths.kick)return;
@@ -339,6 +349,8 @@ function playDrum(d){
     else if(d==='snare')drumSynths.snare.triggerAttackRelease('8n');
     else if(d==='hihat')drumSynths.hihat.triggerAttackRelease('32n');
     else if(d==='clap')drumSynths.clap.triggerAttackRelease('16n');
+    else if(d==='boom')drumSynths.boom.triggerAttackRelease('C0','4n');
+    else if(d==='laser'){drumSynths.laser.frequency.setValueAtTime(1200,Tone.now());drumSynths.laser.frequency.exponentialRampToValueAtTime(100,Tone.now()+0.15);drumSynths.laser.triggerAttackRelease('16n')}
 }
 
 // === MIC ===
@@ -478,7 +490,7 @@ const FX_DEFS=[
     {key:'echo',icon:'🔁',name:'Echo',min:0,max:100,step:1,unit:'%',def:0,sc:0.01},
     {key:'distortion',icon:'⚡',name:'Distortion',min:0,max:100,step:1,unit:'%',def:0,sc:0.01},
     {key:'reverb',icon:'🏛️',name:'Reverb',min:0,max:100,step:1,unit:'%',def:0,sc:0.01},
-    {key:'speed',icon:'🏃',name:'Speed',min:25,max:200,step:5,unit:'%',def:100,sc:0.01},
+    {key:'speed',icon:'🏃',name:'Speed',type:'steps',steps:[{label:'¼x',value:0.25},{label:'½x',value:0.5},{label:'1x',value:1},{label:'2x',value:2},{label:'4x',value:4}],def:1},
     {key:'reverse',icon:'⏪',name:'Reverse',type:'toggle'}
 ];
 
@@ -500,6 +512,14 @@ function updateFxDrawer(){
             const on=l.settings[fx.key];it.classList.toggle('active',on);
             it.innerHTML='<div class="fx-toggle-row"><div class="fx-item-header" style="margin-bottom:0"><span class="fx-item-icon">'+fx.icon+'</span><span class="fx-item-name">'+fx.name+'</span></div><button class="fx-toggle'+(on?' on':'')+'" id="fxt-'+fx.key+'"></button></div>';
             it.querySelector('.fx-toggle').addEventListener('click',()=>{l.settings.reverse=!l.settings.reverse;applyFx(selectedLoop,'reverse');updateFxDrawer()});
+        }else if(fx.type==='steps'){
+            const cur=l.settings[fx.key];it.classList.toggle('active',cur!==fx.def);
+            let btns='<div class="fx-item-header"><span class="fx-item-icon">'+fx.icon+'</span><span class="fx-item-name">'+fx.name+'</span></div><div class="speed-steps">';
+            fx.steps.forEach(s=>{btns+='<button class="speed-btn'+(cur===s.value?' active':'')+'" data-speed="'+s.value+'">'+s.label+'</button>'});
+            it.innerHTML=btns+'</div>';
+            it.querySelectorAll('.speed-btn').forEach(b=>b.addEventListener('click',()=>{
+                l.settings.speed=parseFloat(b.dataset.speed);applyFx(selectedLoop,'speed');updateFxDrawer();
+            }));
         }else{
             const raw=fx.sc?l.settings[fx.key]/fx.sc:l.settings[fx.key];
             it.classList.toggle('active',raw!==fx.def);
