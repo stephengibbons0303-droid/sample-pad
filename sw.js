@@ -1,4 +1,4 @@
-const CACHE_NAME = 'soundloop-v1';
+const CACHE_NAME = 'soundloop-v2';
 const STATIC_ASSETS = [
     './',
     './index.html',
